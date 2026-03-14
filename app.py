@@ -38,7 +38,7 @@ col1.info("Reference pose used for scoring")
 
 col2.subheader("Student Webcam")
 
-FRAME_WINDOW = col2.image([])
+frame_placeholder = col2.empty()
 
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
@@ -47,47 +47,49 @@ mp_draw = mp.solutions.drawing_utils
 
 cap = cv2.VideoCapture(0)
 
-while run:
+if run:
 
-    ret, frame = cap.read()
+    while cap.isOpened():
 
-    if not ret:
-        st.error("Webcam not detected")
-        break
+        ret, frame = cap.read()
 
-    image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        if not ret:
+            st.error("Webcam not detected")
+            break
 
-    results = pose.process(image)
+        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    if results.pose_landmarks:
+        results = pose.process(image)
 
-        landmarks = []
+        if results.pose_landmarks:
 
-        for lm in results.pose_landmarks.landmark:
-            landmarks.extend([lm.x, lm.y, lm.z])
+            landmarks = []
 
-        mp_draw.draw_landmarks(
-            frame,
-            results.pose_landmarks,
-            mp_pose.POSE_CONNECTIONS
-        )
+            for lm in results.pose_landmarks.landmark:
+                landmarks.extend([lm.x, lm.y, lm.z])
 
-        if teacher_pose is not None:
-
-            score = pose_score(landmarks, teacher_pose)
-
-            cv2.putText(
+            mp_draw.draw_landmarks(
                 frame,
-                f"Score: {int(score)}",
-                (50,50),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0,255,0),
-                2
+                results.pose_landmarks,
+                mp_pose.POSE_CONNECTIONS
             )
 
-            st.metric("Dance Accuracy Score", f"{int(score)}%")
+            if teacher_pose is not None:
 
-    FRAME_WINDOW.image(frame)
+                score = pose_score(landmarks, teacher_pose)
+
+                cv2.putText(
+                    frame,
+                    f"Score: {int(score)}",
+                    (50, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (0, 255, 0),
+                    2
+                )
+
+                st.metric("Dance Accuracy Score", f"{int(score)}%")
+
+        frame_placeholder.image(frame, channels="BGR")
 
 cap.release()
