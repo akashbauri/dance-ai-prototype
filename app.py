@@ -3,66 +3,60 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-from pose_utils import calculate_angle, similarity_score
+from pose_engine import extract_landmarks
+from scoring import pose_score, joint_error
 
-st.title("AI Dance Pose Prototype")
+st.set_page_config(page_title="AI Dance Coach", layout="wide")
 
-run = st.checkbox("Start Webcam")
+st.title("AI Dance Coach")
 
-FRAME_WINDOW = st.image([])
+st.subheader("Real-Time Dance Pose Feedback")
 
-mp_pose = mp.solutions.pose
-pose = mp_pose.Pose()
+col1, col2 = st.columns(2)
 
-mp_draw = mp.solutions.drawing_utils
+teacher_pose = np.load("teacher_pose.npy")
+
+run = st.checkbox("Start Camera")
 
 cap = cv2.VideoCapture(0)
 
-teacher_angle = 120
+mp_draw = mp.solutions.drawing_utils
+mp_pose = mp.solutions.pose
+pose = mp_pose.Pose()
 
 while run:
 
     ret, frame = cap.read()
 
-    if not ret:
-        break
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-    results = pose.process(image)
+    results = pose.process(frame)
 
     if results.pose_landmarks:
 
-        landmarks = results.pose_landmarks.landmark
+        landmarks = []
 
-        shoulder = [landmarks[11].x, landmarks[11].y]
-        elbow = [landmarks[13].x, landmarks[13].y]
-        wrist = [landmarks[15].x, landmarks[15].y]
+        for lm in results.pose_landmarks.landmark:
 
-        angle = calculate_angle(shoulder, elbow, wrist)
+            landmarks.extend([lm.x, lm.y, lm.z])
 
-        score = similarity_score(angle, teacher_angle)
+        score = pose_score(landmarks, teacher_pose)
 
-        cv2.putText(frame, f"Elbow Angle: {int(angle)}",
-        (50,50),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0,255,0),
-        2)
+        errors = joint_error(landmarks, teacher_pose)
 
-        cv2.putText(frame, f"Score: {int(score)}",
-        (50,100),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0,255,0),
-        2)
+        cv2.putText(frame,
+                    f"Score: {score}",
+                    (50,50),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (0,255,0),
+                    2)
 
         mp_draw.draw_landmarks(
             frame,
             results.pose_landmarks,
-            mp_pose.POSE_CONNECTIONS
-        )
+            mp_pose.POSE_CONNECTIONS)
 
-    FRAME_WINDOW.image(frame)
+    col2.image(frame)
 
 cap.release()
